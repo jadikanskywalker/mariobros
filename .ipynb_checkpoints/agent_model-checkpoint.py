@@ -228,7 +228,7 @@ class Agent:
         episode_step = 0
         state, info = self.env.reset()
         loss = 0
-        last_hundred_rewards = deque(maxlen=100)
+        last_hundred_rewards = deque(maxlen=eps_until_save)
         last_x_steps_per_episode = deque(maxlen=eps_until_save)
         
         with open('runCounter.txt', 'r') as f:
