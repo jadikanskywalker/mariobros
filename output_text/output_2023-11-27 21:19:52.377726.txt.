@@ -24,4 +24,6 @@ Episode 90 (Step 16276) - Moving Avg Reward: -0.723 Loss: 0.00606 Epsilon: 0.978
 Episode 100 (Step 23786) - Moving Avg Reward: -0.490 Loss: 0.00538 Epsilon: 0.884 Avg Steps per Episode: 751.0
 *********
 Episode 110 (Step 29819) - Moving Avg Reward: -0.690 Loss: 0.01004 Epsilon: 0.856 Avg Steps per Episode: 603.3
-***
+*********
+Episode 120 (Step 35227) - Moving Avg Reward: -0.790 Loss: 0.01739 Epsilon: 0.825 Avg Steps per Episode: 540.8
+*
