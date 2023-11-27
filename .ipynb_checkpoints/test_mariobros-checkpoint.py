@@ -249,9 +249,8 @@ class Agent:
                 next_state, reward, terminated, truncated, info = self.env.step(action)
                 done = terminated or truncated
 
-                reward /= 800
                 if info["lives"] < num_lives: # penalize agent when life lost
-                    reward -= 0.33
+                    reward -= 800
                 
                 self.replay_buffer.add(current_state, action, reward, next_state, done)
                 episode_reward += reward
@@ -283,35 +282,30 @@ class Agent:
                 print(f'Task solved after {episode} episodes! (Moving Avg Reward: {mean_episode_reward:.3f})')
                 return                
             episode += 1
+    
+    def load_weights(self, pathname):
+        self.dqn.load_weights(pathname)
 
 GAME = "ALE/MarioBros-v5"
     
-
-#Train the agent
-env = make_env(gym.make(GAME, mode=4))
-print("Action space: {}".format(env.action_space))
-print("Action space size: {}".format(env.action_space.n))
-observation, info = env.reset()
-print("Observation space shape: {}".format(observation.shape))
-print("Environment spec: ", env.spec)
-
-agent = Agent(env, gamma=0.999, batch_size=64, lr=0.0007, max_episodes=1000,
-              max_steps_per_episode=2000,
-              steps_until_sync=20, choose_action_frequency=1,
-              pre_train_steps = 10, final_exploration_step = 700_000)
-agent.train()
-
-env.close()
 
 #use the DQN
 env = make_env(gym.make(GAME, render_mode="rgb_array"))
 observation, info = env.reset()
 
+
+#load the agent
+agent = Agent(env, gamma=0.99, batch_size=64, lr=0.0007, max_episodes=1000,
+              steps_until_sync=500, choose_action_frequency=1,
+              pre_train_steps = 1, final_exploration_step = 10_000)
+
+agent.load_weights("./checkpoints/ep_160")
+
 # Create a VideoWriter object.
-video_writer = cv2.VideoWriter('test_output_' + str(datetime.datetime.now().date()) + '.mp4', cv2.VideoWriter_fourcc(*'MP4V'), 20.0, (160, 210), isColor=True)
+video_writer = cv2.VideoWriter('test_output_' + str(datetime.datetime.now().date()) + '.mp4', cv2.VideoWriter_fourcc(*'MP42'), 25.0, (160, 210), isColor=True)
 
 #show the steps the agent takes using the optimal policy table
-for i in range(10):
+for i in range(1):
     observation, info = env.reset()
     terminated = truncated = False
     rewards = 0

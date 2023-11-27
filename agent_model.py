@@ -3,6 +3,7 @@ import gymnasium as gym
 import numpy as np
 import tensorflow as tf
 import random as rand
+import os
 import cv2
 import collections
 from collections import deque
@@ -69,7 +70,7 @@ class ReplayBuffer:
     def __len__(self):
         return len(self.replay_memory)
     
-    #Class to implement an epsilon decay schedule
+#Class to implement an epsilon decay schedule
 #epsilon starts high and then reduces by a decay factor
 #The decay factor can be changed according to how many training iterations
 #  are completed
@@ -155,6 +156,7 @@ class Agent:
         self.batch_size = batch_size
         #stochastic gradient method, lr is learning rate
         self.optimizer = tf.optimizers.legacy.Adam(lr)
+        self.lr = lr
         #discount factor
         self.gamma = gamma
         #to fill up the replay buffer
@@ -220,14 +222,37 @@ class Agent:
         #return the loss
         return loss
 
-    def train(self):
-        episode = 0
-        total_step = 0
+    def train(self, start_ep=0, start_step=0, eps_until_save=20):
+        episode = start_ep
+        total_step = start_step
         episode_step = 0
         state, info = self.env.reset()
         loss = 0
         last_hundred_rewards = deque(maxlen=100)
+        last_x_steps_per_episode = deque(maxlen=eps_until_save)
+        
+        with open('runCounter.txt', 'r') as f:
+            text = f.read()
+        runCounter = int(text)
+        print("run: ", runCounter)
+        with open('runCounter.txt', 'w') as f:
+            f.write(str(runCounter+1))
+        
+        checkpoint_directory = "./checkpoints_v" + str(runCounter)
+        if not os.path.exists(checkpoint_directory):
+            os.mkdir(checkpoint_directory)
 
+        time = datetime.datetime.now()
+        output_file = "./output_text/output_" + str(time) + ".txt."
+        with open(output_file, "w") as f:
+            f.write("Run: " + str(runCounter) + "\n")
+            f.write("Date: " + str(time) + "\n\n")
+            f.write("Parameters:\n")
+            f.write("  gamma=" + str(self.gamma) + ",         batch_size=" + str(self.batch_size) + ",                lr=" + str(self.lr) + ",\n")
+            f.write("  max_episodes=" + str(self.max_episodes) + ",   max_steps_per_episode=" + str(self.max_steps_per_episode) + ",\n")
+            f.write("  steps_until_sync=" + str(self.steps_until_sync) + ", choose_action_frequency=" + str(self.choose_action_frequency) + ",\n")
+            f.write("  pre_train_steps=" + str(self.pre_train_steps) + ",  final_exploration_step=" + str(self.final_exploration_step) + "\n\n")
+        
         while episode < self.max_episodes:
             current_state, info = self.env.reset()
             done = False
@@ -271,59 +296,28 @@ class Agent:
             # end of episode
             self.episode_reward_history.append(episode_reward)
             last_hundred_rewards.append(episode_reward)
+            last_x_steps_per_episode.append(episode_step)
             mean_episode_reward = np.mean(last_hundred_rewards)
+            mean_steps_per_episode = np.mean(last_x_steps_per_episode)
             #show the average reward
-            if episode % 20 == 0:
-                print('\n' + f'Episode {episode} (Step {total_step}) - Moving Avg Reward: {mean_episode_reward:.3f} Loss: {loss:.5f} Epsilon: {epsilon:.3f}')
-                self.dqn_target.save_weights("./checkpoints/ep_" + str(episode))
+            if episode % eps_until_save == 0:
+                msg = '\n' + f'Episode {episode} (Step {total_step}) - Moving Avg Reward: {mean_episode_reward:.3f} Loss: {loss:.5f} Epsilon: {epsilon:.3f} Avg Steps per Episode: {mean_steps_per_episode}\n'
+                print(msg, end="")
+                with open(output_file, "a") as f:
+                    f.write(msg)
+                    
+                self.dqn_target.save_weights(checkpoint_directory + "/ep_" + str(episode))
             else:
                 print("*", end="")
+                with open(output_file, "a") as f:
+                    f.write("*")
             #stop training if the mean of the last 100 rewards is nearing 200
             if mean_episode_reward >= 195:
                 print(f'Task solved after {episode} episodes! (Moving Avg Reward: {mean_episode_reward:.3f})')
                 return                
             episode += 1
-
-GAME = "ALE/MarioBros-v5"
     
+                
+    def load_weights(self, pathname):
+        self.dqn.load_weights(pathname)
 
-#Train the agent
-env = make_env(gym.make(GAME, mode=4))
-print("Action space: {}".format(env.action_space))
-print("Action space size: {}".format(env.action_space.n))
-observation, info = env.reset()
-print("Observation space shape: {}".format(observation.shape))
-print("Environment spec: ", env.spec)
-
-agent = Agent(env, gamma=0.999, batch_size=64, lr=0.0007, max_episodes=1000,
-              max_steps_per_episode=2000,
-              steps_until_sync=20, choose_action_frequency=1,
-              pre_train_steps = 10, final_exploration_step = 700_000)
-agent.train()
-
-env.close()
-
-#use the DQN
-env = make_env(gym.make(GAME, render_mode="rgb_array"))
-observation, info = env.reset()
-
-# Create a VideoWriter object.
-video_writer = cv2.VideoWriter('test_output_' + str(datetime.datetime.now().date()) + '.mp4', cv2.VideoWriter_fourcc(*'MP4V'), 20.0, (160, 210), isColor=True)
-
-#show the steps the agent takes using the optimal policy table
-for i in range(10):
-    observation, info = env.reset()
-    terminated = truncated = False
-    rewards = 0
-    while not terminated and not truncated:
-        #find max policy
-        Q_values = agent.predict_q(np.expand_dims(observation, axis=0))
-        action = np.argmax(Q_values[0])
-        observation, reward, terminated, truncated, info = env.step(action)
-        video_writer.write(np.uint8(np.reshape(env.render(), (210, 160, 3))))
-        rewards += reward
-    print('Total reward is: '+str(rewards))
-env.close()
-
-# Close the VideoWriter object.
-video_writer.release()

@@ -161,7 +161,7 @@ class Agent:
         self.pre_train_steps = pre_train_steps
         self.final_exploration_step = final_exploration_step
         self.replay_buffer = ReplayBuffer(max_episodes*max_steps_per_episode)
-        self.epsilon_schedule = EpsilonSchedule(final_epsilon=0.1, 
+        self.epsilon_schedule = EpsilonSchedule(final_epsilon=0.2, 
                 pre_train_steps=self.pre_train_steps,
                 final_exploration_step=self.final_exploration_step)
         #steps until the target dqn is updated with the current dqn
@@ -283,6 +283,9 @@ class Agent:
                 print(f'Task solved after {episode} episodes! (Moving Avg Reward: {mean_episode_reward:.3f})')
                 return                
             episode += 1
+            
+    def load_weights(self, pathname):
+        self.dqn.load_weights(pathname)
 
 GAME = "ALE/MarioBros-v5"
     
@@ -298,7 +301,8 @@ print("Environment spec: ", env.spec)
 agent = Agent(env, gamma=0.999, batch_size=64, lr=0.0007, max_episodes=1000,
               max_steps_per_episode=2000,
               steps_until_sync=20, choose_action_frequency=1,
-              pre_train_steps = 10, final_exploration_step = 700_000)
+              pre_train_steps = 1, final_exploration_step = 700_000)
+agent.load_weights("./checkpoints_v3/ep_20")
 agent.train()
 
 env.close()
@@ -308,7 +312,7 @@ env = make_env(gym.make(GAME, render_mode="rgb_array"))
 observation, info = env.reset()
 
 # Create a VideoWriter object.
-video_writer = cv2.VideoWriter('test_output_' + str(datetime.datetime.now().date()) + '.mp4', cv2.VideoWriter_fourcc(*'MP4V'), 20.0, (160, 210), isColor=True)
+video_writer = cv2.VideoWriter('test_output_' + str(datetime.datetime.now().date()) + '.avi', cv2.VideoWriter_fourcc(*'AVI'), 20.0, (160, 210), isColor=True)
 
 #show the steps the agent takes using the optimal policy table
 for i in range(10):
